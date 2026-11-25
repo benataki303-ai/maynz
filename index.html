@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#203629"><title>MAYNZ | Menu</title>
+<style>
+:root{--green:#203629;--gold:#d4a84f;--paper:#f7f2e8;--card:#fffdf8;--muted:#737970}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:#253329;font-family:Arial,"Noto Sans Arabic",sans-serif}
+header{background:linear-gradient(135deg,#17271d,#35523b);color:white;text-align:center;padding:36px 15px 30px;border-bottom:5px solid var(--gold)}
+h1{font:700 54px Georgia,serif;letter-spacing:8px;margin:0}.sub{color:#e8d9b9;letter-spacing:2px;font-size:12px;margin-top:7px}
+main{max-width:900px;margin:25px auto 55px;padding:0 15px}.section{margin:28px 0}.heading{display:flex;align-items:center;gap:10px;border-bottom:2px solid var(--gold);padding:0 2px 11px;margin-bottom:10px}
+.heading h2{font-size:21px;margin:0;color:var(--green)}.arabic{margin-left:auto;direction:rtl;font-size:19px;font-weight:bold}
+.items{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:10px}.item{background:var(--card);border:1px solid #e8e0d2;border-radius:13px;padding:15px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 3px 12px #263b2a0b}
+.itemname{font-weight:bold}.arname{display:block;color:var(--muted);font-size:13px;font-weight:normal;direction:rtl;text-align:left;margin-top:5px}
+.price{font-weight:800;color:var(--green);white-space:nowrap}.price small{font-size:11px;color:var(--muted)}
+footer{text-align:center;color:var(--muted);font-size:12px;padding:25px}
+#admin{max-width:900px;margin:20px auto;padding:15px;display:none}#admin h2{margin-bottom:8px}
+.panel{background:white;border:1px solid #e7dfd2;border-radius:14px;padding:16px;margin:12px 0}
+input{padding:10px;border:1px solid #cfc8bb;border-radius:8px;max-width:100%}button{background:var(--green);color:white;border:0;border-radius:8px;padding:10px 14px;cursor:pointer;font-weight:bold}button.secondary{background:#6c756d}button:disabled{opacity:.5}
+.adminrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #eee}.adminrow:last-child{border:0}.adminrow input{width:110px}
+.small{font-size:12px;color:var(--muted)}.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.notice{font-size:13px;color:#536252;margin-top:8px}
+@media(max-width:500px){h1{font-size:43px}.adminrow{align-items:flex-start;flex-direction:column}.adminrow input{width:100%}}
+</style>
+</head>
+<body>
+<header><h1>MAYNZ</h1><div class="sub">MENU • قائمة الطعام</div><p>Saveurs généreuses, plaisir garanti<br><span dir="rtl">نكهة بنينة ومتعة مضمونة</span></p></header>
+<main id="menu"><p class="small">Chargement du menu… / جارٍ تحميل القائمة…</p></main>
+<section id="admin">
+  <div class="panel">
+    <h2>MAYNZ ADMIN</h2><p class="small">Espace privé — الإدارة الخاصة</p>
+    <div id="login">
+      <div class="toolbar"><input id="email" type="email" placeholder="Email"><input id="password" type="password" placeholder="Mot de passe"><button id="loginBtn">Connexion</button></div>
+      <p class="notice">حساب الإدارة يجب إنشاؤه في Supabase قبل تسجيل الدخول.</p>
+    </div>
+    <div id="logged" hidden><div class="toolbar"><span id="who"></span><button class="secondary" id="logoutBtn">Déconnexion</button><button id="refreshBtn">Actualiser</button></div><p class="notice">غيّر السعر ثم اضغط حفظ. يظهر التغيير للزبائن بعد تحديث القائمة مباشرة.</p></div>
+    <p id="status" class="notice" role="status"></p>
+  </div>
+  <div id="editor"></div>
+</section>
+<footer>MAYNZ · Bon appétit ! <span dir="rtl">بالشفاء</span></footer>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+const {createClient}=supabase;
+const ready=window.MAYNZ_CONFIG && MAYNZ_CONFIG.url && MAYNZ_CONFIG.anonKey &&
+ !MAYNZ_CONFIG.url.includes("VOTRE") && !MAYNZ_CONFIG.anonKey.includes("VOTRE");
+const client=ready?createClient(MAYNZ_CONFIG.url,MAYNZ_CONFIG.anonKey):null;
+const groups=[
+ {key:"tabouna",title:"TABOUNA",ar:"طابونة",emoji:"🥖"},
+ {key:"mlawi",title:"MLAWI",ar:"ملاوي",emoji:"🫓"},
+ {key:"ma9loub",title:"MA9LOUB",ar:"مقلوب",emoji:"🍽️"},
+ {key:"baguette",title:"BAGUETTE FARCIE",ar:"باغيت محشية",emoji:"🥖"}
+];
+let products=[];
+const money=n=>Number(n).toFixed(3).replace(".",",");
+function renderMenu(){
+ const host=document.getElementById("menu");
+ if(!products.length){host.innerHTML='<p>Le menu sera affiché ici après la configuration de la base de données. / ستظهر القائمة بعد إعداد قاعدة البيانات.</p>';return}
+ host.innerHTML=groups.map(g=>{
+  const rows=products.filter(p=>p.category===g.key);
+  return `<section class="section"><div class="heading"><span>${g.emoji}</span><h2>${g.title}</h2><span class="arabic">${g.ar}</span></div><div class="items">${rows.map(p=>`<article class="item"><div><div class="itemname">${esc(p.name_fr)}</div><span class="arname">${esc(p.name_ar)}</span></div><div class="price">${money(p.price)} <small>د.ت</small></div></article>`).join("")}</div></section>`;
+ }).join("");
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+async function load(){
+ if(!client){document.getElementById("menu").innerHTML='<p>Configuration requise : modifiez config.js avec les identifiants Supabase. / يلزم إعداد الاتصال بقاعدة البيانات.</p>';return}
+ const {data,error}=await client.from("menu_items").select("*").order("sort_order");
+ if(error){document.getElementById("menu").textContent="Erreur de chargement : "+error.message;return}
+ products=data||[];renderMenu();renderEditor();
+}
+function renderEditor(){
+ const host=document.getElementById("editor");
+ if(!products.length){host.innerHTML="";return}
+ host.innerHTML=groups.map(g=>{
+  const rows=products.filter(p=>p.category===g.key);
+  return `<div class="panel"><h3>${g.title} / ${g.ar}</h3>${rows.map(p=>`<div class="adminrow"><div><b>${esc(p.name_fr)}</b><div class="small" dir="rtl">${esc(p.name_ar)}</div></div><div class="toolbar"><input aria-label="Prix ${esc(p.name_fr)}" type="number" min="0" step="0.001" value="${Number(p.price).toFixed(3)}" id="price-${p.id}"><button onclick="savePrice('${p.id}')">Enregistrer</button></div></div>`).join("")}</div>`;
+ }).join("");
+}
+window.savePrice=async id=>{
+ const input=document.getElementById("price-"+id), price=Number(input.value);
+ if(!Number.isFinite(price)||price<0){setStatus("Prix invalide.");return}
+ setStatus("Enregistrement…");
+ const {error}=await client.from("menu_items").update({price}).eq("id",id);
+ if(error){setStatus("Erreur : "+error.message);return}
+ setStatus("Prix enregistré. Le menu public est actualisé.");await load();
+};
+function setStatus(s){document.getElementById("status").textContent=s}
+async function updateAuth(){
+ const {data:{session}}=await client.auth.getSession();
+ document.getElementById("login").hidden=!!session;
+ document.getElementById("logged").hidden=!session;
+ document.getElementById("editor").style.display=session?"block":"none";
+ document.getElementById("who").textContent=session?.user?.email||"";
+ if(session) await load();
+}
+document.getElementById("loginBtn").onclick=async()=>{
+ if(!client)return setStatus("Configurez d'abord config.js.");
+ const {error}=await client.auth.signInWithPassword({email:document.getElementById("email").value,password:document.getElementById("password").value});
+ setStatus(error?error.message:"Connexion réussie.");if(!error)await updateAuth();
+};
+document.getElementById("logoutBtn").onclick=async()=>{await client.auth.signOut();await updateAuth();setStatus("Déconnecté.")};
+document.getElementById("refreshBtn").onclick=load;
+if(client){
+ client.auth.onAuthStateChange(()=>setTimeout(updateAuth,0));
+ client.channel("menu-live").on("postgres_changes",{event:"*",schema:"public",table:"menu_items"},()=>load()).subscribe();
+ updateAuth();load();
+}
+const params=new URLSearchParams(location.search);
+if(params.get("admin")==="1"){document.getElementById("menu").style.display="none";document.getElementById("admin").style.display="block";}
+</script>
+</body></html>
